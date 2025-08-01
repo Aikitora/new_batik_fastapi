@@ -2,7 +2,7 @@ import os
 import io
 import json
 import numpy as np
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, Optional
 from PIL import Image
 import tensorflow as tf
 from tensorflow.keras.models import load_model
@@ -10,7 +10,7 @@ from tensorflow.keras.preprocessing import image
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 import uvicorn
 
 # Initialize FastAPI app
@@ -45,12 +45,10 @@ class PredictionResponse(BaseModel):
     all_predictions: List[Dict[str, Any]]
 
 class HealthResponse(BaseModel):
-    model_config = ConfigDict(protected_namespaces=())
-    
     status: str
     model_loaded: bool
     model_path: str
-    model_error: Union[str, None] = None
+    model_error: Optional[str] = None
 
 def load_batik_names():
     """Load batik names from labels.txt"""
@@ -80,7 +78,7 @@ def load_model_with_fallback():
         print(f"⚠️ First attempt failed: {str(e1)}")
         
         try:
-            # Try loading with custom_objects and compile=False
+            # Try loading with compile=False
             print("🔄 Attempting to load model with custom settings...")
             model = load_model(MODEL_PATH, compile=False)
             return True
