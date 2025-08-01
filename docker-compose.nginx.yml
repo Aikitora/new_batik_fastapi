@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  batik-api:
+    build: .
+    expose:
+      - "8000"
+    volumes:
+      - ./final_tuned_genetic_algorithm_model.keras:/app/final_tuned_genetic_algorithm_model.keras
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ENVIRONMENT=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - batik-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./letsencrypt:/etc/letsencrypt
+    restart: unless-stopped
+    depends_on:
+      - batik-api
+    networks:
+      - batik-network
+
+networks:
+  batik-network:
+    driver: bridge 
