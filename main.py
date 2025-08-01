@@ -76,27 +76,51 @@ def load_model_with_fallback():
     """Load model with fallback for different TensorFlow versions"""
     global model, model_loading_error
     
+    print(f"🔍 Starting model loading process...")
+    print(f"📁 Model path: {os.path.abspath(MODEL_PATH)}")
+    print(f"📁 Model exists: {os.path.exists(MODEL_PATH)}")
+    print(f"📁 Model size: {os.path.getsize(MODEL_PATH) / (1024*1024):.2f} MB")
+    print(f"🔧 TensorFlow version: {tf.__version__}")
+    
     try:
         # Try loading with default settings
-        print("🔄 Loading model with TensorFlow 2.19.0...")
+        print("🔄 Attempt 1: Loading model with default settings...")
         model = load_model(MODEL_PATH)
         print("✅ Original model loaded successfully!")
+        
+        # Test the model immediately
+        test_input = np.random.random((1, 160, 160, 3))
+        test_prediction = model.predict(test_input, verbose=0)
+        print(f"✅ Model test prediction successful: {test_prediction.shape}")
+        print(f"✅ Prediction sum: {np.sum(test_prediction):.6f}")
+        print(f"✅ Unique values: {len(np.unique(test_prediction))}")
+        
         return True
     except Exception as e1:
-        print(f"⚠️ First attempt failed: {str(e1)}")
+        print(f"⚠️ Attempt 1 failed: {str(e1)}")
+        print(f"📋 Error type: {type(e1).__name__}")
         
         try:
             # Try loading with compile=False
-            print("🔄 Attempting to load model with compile=False...")
+            print("🔄 Attempt 2: Loading model with compile=False...")
             model = load_model(MODEL_PATH, compile=False)
             print("✅ Model loaded with compile=False!")
+            
+            # Test the model immediately
+            test_input = np.random.random((1, 160, 160, 3))
+            test_prediction = model.predict(test_input, verbose=0)
+            print(f"✅ Model test prediction successful: {test_prediction.shape}")
+            print(f"✅ Prediction sum: {np.sum(test_prediction):.6f}")
+            print(f"✅ Unique values: {len(np.unique(test_prediction))}")
+            
             return True
         except Exception as e2:
-            print(f"⚠️ Second attempt failed: {str(e2)}")
+            print(f"⚠️ Attempt 2 failed: {str(e2)}")
+            print(f"📋 Error type: {type(e2).__name__}")
             
             try:
                 # Try loading with custom dense layer that handles multiple inputs
-                print("🔄 Attempting to load model with custom dense layer...")
+                print("🔄 Attempt 3: Loading model with custom dense layer...")
                 
                 from tensorflow.keras.layers import Dense
                 
@@ -113,38 +137,23 @@ def load_model_with_fallback():
                 
                 model = load_model(MODEL_PATH, custom_objects={'Dense': CustomDense}, compile=False)
                 print("✅ Model loaded with custom dense layer!")
+                
+                # Test the model immediately
+                test_input = np.random.random((1, 160, 160, 3))
+                test_prediction = model.predict(test_input, verbose=0)
+                print(f"✅ Model test prediction successful: {test_prediction.shape}")
+                print(f"✅ Prediction sum: {np.sum(test_prediction):.6f}")
+                print(f"✅ Unique values: {len(np.unique(test_prediction))}")
+                
                 return True
             except Exception as e3:
-                print(f"⚠️ Third attempt failed: {str(e3)}")
+                print(f"⚠️ Attempt 3 failed: {str(e3)}")
+                print(f"📋 Error type: {type(e3).__name__}")
                 
-                try:
-                    # Try creating a simple model with the same architecture
-                    print("🔄 Attempting to create simple model with same architecture...")
-                    print("⚠️ WARNING: This will create a model without trained weights!")
-                    
-                    from tensorflow.keras.models import Model
-                    from tensorflow.keras.layers import Input, Dense, GlobalAveragePooling2D
-                    from tensorflow.keras.applications import MobileNetV2
-                    
-                    # Create a simple model that should work
-                    input_layer = Input(shape=(160, 160, 3))
-                    
-                    # Use MobileNetV2 as base (similar to what might be in the original model)
-                    base_model = MobileNetV2(weights=None, include_top=False, input_tensor=input_layer)
-                    
-                    # Add global pooling and dense layer
-                    x = GlobalAveragePooling2D()(base_model.output)
-                    output = Dense(60, activation='softmax')(x)
-                    
-                    model = Model(inputs=input_layer, outputs=output)
-                    print("⚠️ WARNING: Created fallback model without trained weights!")
-                    print("⚠️ This model will give random predictions!")
-                    return True
-                    
-                except Exception as e4:
-                    print(f"❌ All loading attempts failed")
-                    model_loading_error = f"Model loading failed after multiple attempts. Last error: {str(e4)}"
-                    return False
+                # Don't create fallback model - it will give random predictions
+                print(f"❌ All loading attempts failed")
+                model_loading_error = f"Model loading failed after multiple attempts. Last error: {str(e3)}"
+                return False
 
 def load_model_and_classes():
     """Load the trained model and class names"""
@@ -266,6 +275,29 @@ async def predict_single_image(file: UploadFile = File(...)):
         raise HTTPException(
             status_code=503, 
             detail=f"Model not loaded. Error: {model_loading_error or 'Unknown error'}"
+        )
+    
+    # Validate that we're using the original model, not a fallback
+    try:
+        # Test prediction to check if model has proper weights
+        test_input = np.random.random((1, 160, 160, 3))
+        test_prediction = model.predict(test_input, verbose=0)
+        
+        # Check if predictions are random (all same value)
+        unique_values = len(np.unique(test_prediction))
+        if unique_values <= 1:
+            raise HTTPException(
+                status_code=503,
+                detail="Model appears to be using fallback (random predictions). Please check model loading."
+            )
+        
+        print(f"✅ Model validation passed: {unique_values} unique prediction values")
+        
+    except Exception as e:
+        print(f"⚠️ Model validation failed: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Model validation failed: {str(e)}"
         )
     
     # Validate file type
