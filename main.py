@@ -81,6 +81,8 @@ def load_model_with_fallback():
     print(f"📁 Model exists: {os.path.exists(MODEL_PATH)}")
     print(f"📁 Model size: {os.path.getsize(MODEL_PATH) / (1024*1024):.2f} MB")
     print(f"🔧 TensorFlow version: {tf.__version__}")
+    print(f"🔧 Python version: {tf.sys.version}")
+    print(f"🔧 Platform: {tf.sys.platform}")
     
     try:
         # Try loading with default settings
@@ -129,26 +131,25 @@ def load_model_with_fallback():
                         super().__init__(units, **kwargs)
                     
                     def call(self, inputs):
-                        # If we get multiple inputs, concatenate them properly
+                        # Handle multiple inputs by concatenating them
                         if isinstance(inputs, (list, tuple)):
-                            print(f"🔄 Dense layer received {len(inputs)} inputs, concatenating...")
+                            print(f"🔄 CustomDense: Received {len(inputs)} inputs")
                             
-                            # Process each input
                             processed_inputs = []
                             for i, inp in enumerate(inputs):
                                 print(f"  📋 Input {i+1} shape: {inp.shape}")
                                 
-                                # If input is 4D (batch, height, width, channels), apply global pooling
+                                # Apply global pooling if 4D
                                 if len(inp.shape) == 4:
                                     inp = GlobalAveragePooling2D()(inp)
                                     print(f"  📋 Input {i+1} after pooling: {inp.shape}")
                                 
                                 processed_inputs.append(inp)
                             
-                            # Concatenate all processed inputs
+                            # Concatenate all inputs
                             if len(processed_inputs) > 1:
                                 inputs = Concatenate()(processed_inputs)
-                                print(f"  📋 Concatenated input shape: {inputs.shape}")
+                                print(f"  📋 Final concatenated shape: {inputs.shape}")
                             else:
                                 inputs = processed_inputs[0]
                         
@@ -169,10 +170,43 @@ def load_model_with_fallback():
                 print(f"⚠️ Attempt 3 failed: {str(e3)}")
                 print(f"📋 Error type: {type(e3).__name__}")
                 
-                # Don't create fallback model - it will give random predictions
-                print(f"❌ All loading attempts failed")
-                model_loading_error = f"Model loading failed after multiple attempts. Last error: {str(e3)}"
-                return False
+                try:
+                    # Try with different TensorFlow settings for production
+                    print("🔄 Attempt 4: Loading model with production TensorFlow settings...")
+                    
+                    # Clear TensorFlow session
+                    tf.keras.backend.clear_session()
+                    
+                    # Set memory growth
+                    gpus = tf.config.experimental.list_physical_devices('GPU')
+                    if gpus:
+                        try:
+                            for gpu in gpus:
+                                tf.config.experimental.set_memory_growth(gpu, True)
+                            print("✅ GPU memory growth enabled")
+                        except RuntimeError as e:
+                            print(f"⚠️ GPU memory growth failed: {e}")
+                    
+                    # Try loading with different settings
+                    model = load_model(MODEL_PATH, compile=False, options=tf.saved_model.LoadOptions())
+                    print("✅ Model loaded with production settings!")
+                    
+                    # Test the model immediately
+                    test_input = np.random.random((1, 160, 160, 3))
+                    test_prediction = model.predict(test_input, verbose=0)
+                    print(f"✅ Model test prediction successful: {test_prediction.shape}")
+                    print(f"✅ Prediction sum: {np.sum(test_prediction):.6f}")
+                    print(f"✅ Unique values: {len(np.unique(test_prediction))}")
+                    
+                    return True
+                except Exception as e4:
+                    print(f"⚠️ Attempt 4 failed: {str(e4)}")
+                    print(f"📋 Error type: {type(e4).__name__}")
+                    
+                    # Don't create fallback model - it will give random predictions
+                    print(f"❌ All loading attempts failed")
+                    model_loading_error = f"Model loading failed after multiple attempts. Last error: {str(e4)}"
+                    return False
 
 def load_model_and_classes():
     """Load the trained model and class names"""
