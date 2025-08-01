@@ -67,6 +67,45 @@ def load_batik_names():
         print(f"❌ Error loading labels: {e}, using generic names")
         return [f"batik_class_{i}" for i in range(NUM_CLASSES)]
 
+def load_model_with_fallback():
+    """Load model with fallback for different TensorFlow versions"""
+    global model, model_loading_error
+    
+    try:
+        # Try loading with default settings
+        print("🔄 Attempting to load model with default settings...")
+        model = load_model(MODEL_PATH)
+        return True
+    except Exception as e1:
+        print(f"⚠️ First attempt failed: {str(e1)}")
+        
+        try:
+            # Try loading with custom_objects and compile=False
+            print("🔄 Attempting to load model with custom settings...")
+            model = load_model(MODEL_PATH, compile=False)
+            return True
+        except Exception as e2:
+            print(f"⚠️ Second attempt failed: {str(e2)}")
+            
+            try:
+                # Try loading with custom_objects
+                print("🔄 Attempting to load model with custom objects...")
+                model = load_model(MODEL_PATH, custom_objects={}, compile=False)
+                return True
+            except Exception as e3:
+                print(f"⚠️ Third attempt failed: {str(e3)}")
+                
+                try:
+                    # Try with different TensorFlow settings
+                    print("🔄 Attempting to load model with TensorFlow compatibility settings...")
+                    tf.keras.backend.clear_session()
+                    model = load_model(MODEL_PATH, compile=False, options=tf.saved_model.LoadOptions(experimental_io_device='/job:localhost'))
+                    return True
+                except Exception as e4:
+                    print(f"❌ All loading attempts failed")
+                    model_loading_error = f"Model loading failed after multiple attempts. Last error: {str(e4)}"
+                    return False
+
 def load_model_and_classes():
     """Load the trained model and class names"""
     global model, class_names, model_loading_error
@@ -83,8 +122,11 @@ def load_model_and_classes():
         file_size = os.path.getsize(MODEL_PATH)
         print(f"📁 Model file found: {MODEL_PATH} ({file_size / (1024*1024):.2f} MB)")
         
-        # Load the model
-        model = load_model(MODEL_PATH)
+        # Load the model with fallback
+        success = load_model_with_fallback()
+        if not success:
+            return False
+        
         print(f"✅ Model berhasil dimuat dari: {MODEL_PATH}")
         
         # Load batik names from labels.txt
@@ -138,6 +180,7 @@ async def startup_event():
     print(f"📂 Current working directory: {os.getcwd()}")
     print(f"📁 Model path: {os.path.abspath(MODEL_PATH)}")
     print(f"📁 Labels path: {os.path.abspath(LABELS_PATH)}")
+    print(f"🔧 TensorFlow version: {tf.__version__}")
     
     # List files in current directory
     print("📋 Files in current directory:")
@@ -311,7 +354,8 @@ async def debug_info():
         "model_loading_error": model_loading_error,
         "available_files": [f for f in os.listdir('.') if f.endswith('.keras') or f.endswith('.h5') or f.endswith('.txt')],
         "environment": os.environ.get('ENVIRONMENT', 'development'),
-        "batik_names_count": len(class_names) if class_names else 0
+        "batik_names_count": len(class_names) if class_names else 0,
+        "tensorflow_version": tf.__version__
     }
 
 if __name__ == "__main__":
