@@ -94,8 +94,8 @@ def load_model_with_fallback():
                 print(f"⚠️ Third attempt failed: {str(e3)}")
                 
                 try:
-                    # Try with TensorFlow 2.15.0 specific settings
-                    print("🔄 Attempting to load model with TensorFlow 2.15.0 settings...")
+                    # Try with TensorFlow 2.16.1 specific settings
+                    print("🔄 Attempting to load model with TensorFlow 2.16.1 settings...")
                     tf.keras.backend.clear_session()
                     model = load_model(MODEL_PATH, compile=False)
                     return True
@@ -103,10 +103,18 @@ def load_model_with_fallback():
                     print(f"⚠️ Fourth attempt failed: {str(e4)}")
                     
                     try:
-                        # Try with experimental settings
-                        print("🔄 Attempting to load model with experimental settings...")
-                        tf.keras.backend.clear_session()
-                        model = load_model(MODEL_PATH, compile=False, options=tf.saved_model.LoadOptions())
+                        # Try with custom InputLayer
+                        print("🔄 Attempting to load model with custom InputLayer...")
+                        from tensorflow.keras.layers import InputLayer
+                        
+                        class CustomInputLayer(InputLayer):
+                            def __init__(self, **kwargs):
+                                # Remove batch_shape if present
+                                if 'batch_shape' in kwargs:
+                                    del kwargs['batch_shape']
+                                super().__init__(**kwargs)
+                        
+                        model = load_model(MODEL_PATH, custom_objects={'InputLayer': CustomInputLayer}, compile=False)
                         return True
                     except Exception as e5:
                         print(f"❌ All loading attempts failed")
