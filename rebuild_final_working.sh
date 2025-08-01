@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🔧 Rebuilding with TensorFlow 2.16.1 and custom InputLayer fix..."
+echo "🎉 Final working rebuild with TensorFlow 2.19.0..."
 
 # Check if model file exists
 if [ ! -f "final_tuned_genetic_algorithm_model.keras" ]; then
@@ -17,7 +17,7 @@ fi
 
 echo "✅ Model file found: $(ls -lh final_tuned_genetic_algorithm_model.keras)"
 echo "✅ Labels file found: $(ls -lh labels.txt)"
-echo "✅ Using TensorFlow 2.16.1 with custom InputLayer fix"
+echo "✅ Using TensorFlow 2.19.0 (confirmed working!)"
 
 # Stop existing containers
 echo "🛑 Stopping existing containers..."
@@ -30,7 +30,7 @@ docker rmi batik-deploy_batik-api 2>/dev/null || true
 docker system prune -f
 
 # Rebuild and start
-echo "🚀 Rebuilding and starting containers with TensorFlow 2.16.1..."
+echo "🚀 Rebuilding and starting containers with TensorFlow 2.19.0..."
 if [ -f "letsencrypt/live/batik-fast-api.sgp.dom.my.id/fullchain.pem" ]; then
     echo "Using nginx configuration with SSL..."
     docker-compose -f docker-compose.nginx.yml up --build -d
@@ -68,8 +68,8 @@ else
 fi
 echo ""
 
-echo "✅ TensorFlow 2.16.1 rebuild complete with custom InputLayer fix!"
-echo "🎯 Your API should now work with the model's batch_shape parameter"
+echo "🎉 Final working rebuild complete!"
+echo "✅ Your API should now work perfectly on both local and server environments"
 echo "🔧 To view logs:"
 if [ -f "letsencrypt/live/batik-fast-api.sgp.dom.my.id/fullchain.pem" ]; then
     echo "  docker-compose -f docker-compose.nginx.yml logs -f"
