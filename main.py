@@ -31,6 +31,7 @@ app.add_middleware(
 
 # Global variables
 MODEL_PATH = "final_tuned_genetic_algorithm_model.keras"
+LABELS_PATH = "labels.txt"
 IMG_SIZE = (160, 160)
 NUM_CLASSES = 60
 model = None
@@ -47,7 +48,22 @@ class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
     model_path: str
-    model_error: str = None
+    model_error: str | None = None
+
+def load_batik_names():
+    """Load batik names from labels.txt"""
+    try:
+        if os.path.exists(LABELS_PATH):
+            with open(LABELS_PATH, 'r', encoding='utf-8') as f:
+                names = [line.strip() for line in f.readlines() if line.strip()]
+            print(f"✅ Loaded {len(names)} batik names from {LABELS_PATH}")
+            return names
+        else:
+            print(f"⚠️ Labels file not found: {LABELS_PATH}, using generic names")
+            return [f"batik_class_{i}" for i in range(NUM_CLASSES)]
+    except Exception as e:
+        print(f"❌ Error loading labels: {e}, using generic names")
+        return [f"batik_class_{i}" for i in range(NUM_CLASSES)]
 
 def load_model_and_classes():
     """Load the trained model and class names"""
@@ -69,10 +85,9 @@ def load_model_and_classes():
         model = load_model(MODEL_PATH)
         print(f"✅ Model berhasil dimuat dari: {MODEL_PATH}")
         
-        # Generate class names (since we don't have the original class names)
-        # In a real scenario, you would load this from a file or database
-        class_names = [f"batik_class_{i}" for i in range(NUM_CLASSES)]
-        print(f"✅ Class names generated: {len(class_names)} classes")
+        # Load batik names from labels.txt
+        class_names = load_batik_names()
+        print(f"✅ Batik names loaded: {len(class_names)} classes")
         
         # Test model with a dummy input
         test_input = np.random.random((1, *IMG_SIZE, 3))
@@ -120,11 +135,12 @@ async def startup_event():
     print("🚀 Starting Batik Classification API...")
     print(f"📂 Current working directory: {os.getcwd()}")
     print(f"📁 Model path: {os.path.abspath(MODEL_PATH)}")
+    print(f"📁 Labels path: {os.path.abspath(LABELS_PATH)}")
     
     # List files in current directory
     print("📋 Files in current directory:")
     for file in os.listdir('.'):
-        if file.endswith('.keras') or file.endswith('.h5'):
+        if file.endswith('.keras') or file.endswith('.h5') or file.endswith('.txt'):
             file_size = os.path.getsize(file)
             print(f"  - {file} ({file_size / (1024*1024):.2f} MB)")
     
@@ -133,7 +149,7 @@ async def startup_event():
         print("⚠️ Warning: Model could not be loaded. API will not function properly.")
         print(f"🔍 Model loading error: {model_loading_error}")
 
-@app.get("/", response_model=Dict[str, str])
+@app.get("/", response_model=Dict[str, Any])
 async def root():
     """Root endpoint"""
     return {
@@ -142,7 +158,9 @@ async def root():
         "endpoints": {
             "health": "/health",
             "predict": "/predict",
-            "predict_batch": "/predict-batch"
+            "predict_batch": "/predict-batch",
+            "model_info": "/model-info",
+            "debug": "/debug"
         }
     }
 
@@ -285,10 +303,13 @@ async def debug_info():
         "model_path": os.path.abspath(MODEL_PATH),
         "model_file_exists": os.path.exists(MODEL_PATH),
         "model_file_size": os.path.getsize(MODEL_PATH) if os.path.exists(MODEL_PATH) else None,
+        "labels_path": os.path.abspath(LABELS_PATH),
+        "labels_file_exists": os.path.exists(LABELS_PATH),
         "model_loaded": model is not None,
         "model_loading_error": model_loading_error,
-        "available_files": [f for f in os.listdir('.') if f.endswith('.keras') or f.endswith('.h5')],
-        "environment": os.environ.get('ENVIRONMENT', 'development')
+        "available_files": [f for f in os.listdir('.') if f.endswith('.keras') or f.endswith('.h5') or f.endswith('.txt')],
+        "environment": os.environ.get('ENVIRONMENT', 'development'),
+        "batik_names_count": len(class_names) if class_names else 0
     }
 
 if __name__ == "__main__":
