@@ -23,7 +23,13 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://front-end-batik-vision.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8080",
+        "*"  # Allow all origins for development
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
