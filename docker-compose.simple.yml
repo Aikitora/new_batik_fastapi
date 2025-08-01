@@ -7,6 +7,7 @@ services:
       - "8000:8000"
     volumes:
       - ./final_tuned_genetic_algorithm_model.keras:/app/final_tuned_genetic_algorithm_model.keras
+      - ./labels.txt:/app/labels.txt
     environment:
       - PYTHONUNBUFFERED=1
       - ENVIRONMENT=production

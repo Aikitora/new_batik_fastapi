@@ -2,7 +2,7 @@ import os
 import io
 import json
 import numpy as np
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 from PIL import Image
 import tensorflow as tf
 from tensorflow.keras.models import load_model
@@ -48,7 +48,7 @@ class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
     model_path: str
-    model_error: str | None = None
+    model_error: Union[str, None] = None
 
 def load_batik_names():
     """Load batik names from labels.txt"""
