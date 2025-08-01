@@ -120,19 +120,38 @@ def load_model_with_fallback():
             
             try:
                 # Try loading with custom dense layer that handles multiple inputs
-                print("🔄 Attempt 3: Loading model with custom dense layer...")
+                print("🔄 Attempt 3: Loading model with custom dense layer for multiple inputs...")
                 
-                from tensorflow.keras.layers import Dense
+                from tensorflow.keras.layers import Dense, Concatenate, GlobalAveragePooling2D
                 
                 class CustomDense(Dense):
                     def __init__(self, units, **kwargs):
                         super().__init__(units, **kwargs)
                     
                     def call(self, inputs):
-                        # If we get multiple inputs, just use the first one
+                        # If we get multiple inputs, concatenate them properly
                         if isinstance(inputs, (list, tuple)):
-                            print(f"🔄 Dense layer received {len(inputs)} inputs, using first one")
-                            inputs = inputs[0]
+                            print(f"🔄 Dense layer received {len(inputs)} inputs, concatenating...")
+                            
+                            # Process each input
+                            processed_inputs = []
+                            for i, inp in enumerate(inputs):
+                                print(f"  📋 Input {i+1} shape: {inp.shape}")
+                                
+                                # If input is 4D (batch, height, width, channels), apply global pooling
+                                if len(inp.shape) == 4:
+                                    inp = GlobalAveragePooling2D()(inp)
+                                    print(f"  📋 Input {i+1} after pooling: {inp.shape}")
+                                
+                                processed_inputs.append(inp)
+                            
+                            # Concatenate all processed inputs
+                            if len(processed_inputs) > 1:
+                                inputs = Concatenate()(processed_inputs)
+                                print(f"  📋 Concatenated input shape: {inputs.shape}")
+                            else:
+                                inputs = processed_inputs[0]
+                        
                         return super().call(inputs)
                 
                 model = load_model(MODEL_PATH, custom_objects={'Dense': CustomDense}, compile=False)
