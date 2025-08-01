@@ -10,7 +10,7 @@ from tensorflow.keras.preprocessing import image
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 import uvicorn
 
 # Initialize FastAPI app
@@ -45,6 +45,8 @@ class PredictionResponse(BaseModel):
     all_predictions: List[Dict[str, Any]]
 
 class HealthResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+    
     status: str
     model_loaded: bool
     model_path: str
