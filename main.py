@@ -25,6 +25,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://front-end-batik-vision.vercel.app",
+        "https://newbatikfastapi-production.up.railway.app",
         "http://localhost:3000",
         "http://localhost:5173",
         "http://localhost:8080",
