@@ -35,6 +35,7 @@ IMG_SIZE = (160, 160)
 NUM_CLASSES = 60
 model = None
 class_names = None
+model_loading_error = None
 
 # Pydantic models for request/response
 class PredictionResponse(BaseModel):
@@ -46,12 +47,24 @@ class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
     model_path: str
+    model_error: str = None
 
 def load_model_and_classes():
     """Load the trained model and class names"""
-    global model, class_names
+    global model, class_names, model_loading_error
     
     try:
+        # Check if model file exists
+        if not os.path.exists(MODEL_PATH):
+            error_msg = f"Model file not found: {MODEL_PATH}"
+            print(f"❌ {error_msg}")
+            model_loading_error = error_msg
+            return False
+        
+        # Check file size
+        file_size = os.path.getsize(MODEL_PATH)
+        print(f"📁 Model file found: {MODEL_PATH} ({file_size / (1024*1024):.2f} MB)")
+        
         # Load the model
         model = load_model(MODEL_PATH)
         print(f"✅ Model berhasil dimuat dari: {MODEL_PATH}")
@@ -61,9 +74,18 @@ def load_model_and_classes():
         class_names = [f"batik_class_{i}" for i in range(NUM_CLASSES)]
         print(f"✅ Class names generated: {len(class_names)} classes")
         
+        # Test model with a dummy input
+        test_input = np.random.random((1, *IMG_SIZE, 3))
+        test_prediction = model.predict(test_input, verbose=0)
+        print(f"✅ Model test prediction successful: {test_prediction.shape}")
+        
+        model_loading_error = None
         return True
+        
     except Exception as e:
-        print(f"❌ Error loading model: {str(e)}")
+        error_msg = f"Error loading model: {str(e)}"
+        print(f"❌ {error_msg}")
+        model_loading_error = error_msg
         return False
 
 def preprocess_image(image_file: bytes) -> np.ndarray:
@@ -96,9 +118,20 @@ def preprocess_image(image_file: bytes) -> np.ndarray:
 async def startup_event():
     """Load model on startup"""
     print("🚀 Starting Batik Classification API...")
+    print(f"📂 Current working directory: {os.getcwd()}")
+    print(f"📁 Model path: {os.path.abspath(MODEL_PATH)}")
+    
+    # List files in current directory
+    print("📋 Files in current directory:")
+    for file in os.listdir('.'):
+        if file.endswith('.keras') or file.endswith('.h5'):
+            file_size = os.path.getsize(file)
+            print(f"  - {file} ({file_size / (1024*1024):.2f} MB)")
+    
     success = load_model_and_classes()
     if not success:
         print("⚠️ Warning: Model could not be loaded. API will not function properly.")
+        print(f"🔍 Model loading error: {model_loading_error}")
 
 @app.get("/", response_model=Dict[str, str])
 async def root():
@@ -119,14 +152,18 @@ async def health_check():
     return HealthResponse(
         status="healthy",
         model_loaded=model is not None,
-        model_path=MODEL_PATH
+        model_path=MODEL_PATH,
+        model_error=model_loading_error
     )
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_single_image(file: UploadFile = File(...)):
     """Predict single image"""
     if model is None:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Model not loaded. Error: {model_loading_error or 'Unknown error'}"
+        )
     
     # Validate file type
     if not file.content_type.startswith('image/'):
@@ -172,7 +209,10 @@ async def predict_single_image(file: UploadFile = File(...)):
 async def predict_batch_images(files: List[UploadFile] = File(...)):
     """Predict multiple images"""
     if model is None:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Model not loaded. Error: {model_loading_error or 'Unknown error'}"
+        )
     
     if len(files) > 10:  # Limit batch size
         raise HTTPException(status_code=400, detail="Maximum 10 images per batch")
@@ -223,14 +263,32 @@ async def predict_batch_images(files: List[UploadFile] = File(...)):
 async def get_model_info():
     """Get model information"""
     if model is None:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Model not loaded. Error: {model_loading_error or 'Unknown error'}"
+        )
     
     return {
         "model_path": MODEL_PATH,
         "input_shape": IMG_SIZE + (3,),
         "num_classes": NUM_CLASSES,
         "class_names": class_names,
-        "model_summary": "Model loaded successfully"
+        "model_summary": "Model loaded successfully",
+        "model_error": model_loading_error
+    }
+
+@app.get("/debug")
+async def debug_info():
+    """Debug endpoint to check system status"""
+    return {
+        "current_directory": os.getcwd(),
+        "model_path": os.path.abspath(MODEL_PATH),
+        "model_file_exists": os.path.exists(MODEL_PATH),
+        "model_file_size": os.path.getsize(MODEL_PATH) if os.path.exists(MODEL_PATH) else None,
+        "model_loaded": model is not None,
+        "model_loading_error": model_loading_error,
+        "available_files": [f for f in os.listdir('.') if f.endswith('.keras') or f.endswith('.h5')],
+        "environment": os.environ.get('ENVIRONMENT', 'development')
     }
 
 if __name__ == "__main__":
