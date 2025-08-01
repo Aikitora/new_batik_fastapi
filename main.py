@@ -79,7 +79,7 @@ def load_model_with_fallback():
         
         try:
             # Try loading with compile=False
-            print("🔄 Attempting to load model with custom settings...")
+            print("🔄 Attempting to load model with compile=False...")
             model = load_model(MODEL_PATH, compile=False)
             return True
         except Exception as e2:
@@ -94,15 +94,24 @@ def load_model_with_fallback():
                 print(f"⚠️ Third attempt failed: {str(e3)}")
                 
                 try:
-                    # Try with different TensorFlow settings
-                    print("🔄 Attempting to load model with TensorFlow compatibility settings...")
+                    # Try with TensorFlow 2.15.0 specific settings
+                    print("🔄 Attempting to load model with TensorFlow 2.15.0 settings...")
                     tf.keras.backend.clear_session()
-                    model = load_model(MODEL_PATH, compile=False, options=tf.saved_model.LoadOptions(experimental_io_device='/job:localhost'))
+                    model = load_model(MODEL_PATH, compile=False)
                     return True
                 except Exception as e4:
-                    print(f"❌ All loading attempts failed")
-                    model_loading_error = f"Model loading failed after multiple attempts. Last error: {str(e4)}"
-                    return False
+                    print(f"⚠️ Fourth attempt failed: {str(e4)}")
+                    
+                    try:
+                        # Try with experimental settings
+                        print("🔄 Attempting to load model with experimental settings...")
+                        tf.keras.backend.clear_session()
+                        model = load_model(MODEL_PATH, compile=False, options=tf.saved_model.LoadOptions())
+                        return True
+                    except Exception as e5:
+                        print(f"❌ All loading attempts failed")
+                        model_loading_error = f"Model loading failed after multiple attempts. Last error: {str(e5)}"
+                        return False
 
 def load_model_and_classes():
     """Load the trained model and class names"""
