@@ -80,6 +80,7 @@ def load_model_with_fallback():
         # Try loading with default settings
         print("🔄 Loading model with TensorFlow 2.19.0...")
         model = load_model(MODEL_PATH)
+        print("✅ Original model loaded successfully!")
         return True
     except Exception as e1:
         print(f"⚠️ First attempt failed: {str(e1)}")
@@ -88,6 +89,7 @@ def load_model_with_fallback():
             # Try loading with compile=False
             print("🔄 Attempting to load model with compile=False...")
             model = load_model(MODEL_PATH, compile=False)
+            print("✅ Model loaded with compile=False!")
             return True
         except Exception as e2:
             print(f"⚠️ Second attempt failed: {str(e2)}")
@@ -110,6 +112,7 @@ def load_model_with_fallback():
                         return super().call(inputs)
                 
                 model = load_model(MODEL_PATH, custom_objects={'Dense': CustomDense}, compile=False)
+                print("✅ Model loaded with custom dense layer!")
                 return True
             except Exception as e3:
                 print(f"⚠️ Third attempt failed: {str(e3)}")
@@ -117,6 +120,7 @@ def load_model_with_fallback():
                 try:
                     # Try creating a simple model with the same architecture
                     print("🔄 Attempting to create simple model with same architecture...")
+                    print("⚠️ WARNING: This will create a model without trained weights!")
                     
                     from tensorflow.keras.models import Model
                     from tensorflow.keras.layers import Input, Dense, GlobalAveragePooling2D
@@ -133,7 +137,8 @@ def load_model_with_fallback():
                     output = Dense(60, activation='softmax')(x)
                     
                     model = Model(inputs=input_layer, outputs=output)
-                    print("✅ Created simple model with same architecture!")
+                    print("⚠️ WARNING: Created fallback model without trained weights!")
+                    print("⚠️ This model will give random predictions!")
                     return True
                     
                 except Exception as e4:
